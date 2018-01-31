@@ -37,6 +37,7 @@ func init() {
 func main() {
 	var domainData *domainer.OwnDomain
 	savedDomain, err := storage.GetDomainData(DOMAIN)
+	defer storage.Close()
 	if err != nil {
 		log.Fatalln(err)
 	}

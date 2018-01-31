@@ -37,3 +37,7 @@ func GetDomainData(domain string) (data string, err error) {
 	}
 	return data, err
 }
+
+func Close() error {
+	return redisClient.Close()
+}
