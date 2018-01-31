@@ -10,8 +10,7 @@ import (
 	"github.com/gusga/ip-updater/storage"
 )
 
-var IP_URL_SERVICE = os.Getenv("IP_URL_SERVICE")
-
+var IP_URL_SERVICE string
 var DOMAIN string
 
 func lookupRemoteIp() string {
@@ -28,8 +27,12 @@ func lookupRemoteIp() string {
 }
 func init() {
 	DOMAIN = os.Getenv("DOMAIN")
+	IP_URL_SERVICE = os.Getenv("IP_URL_SERVICE")
 	if DOMAIN == "" {
 		log.Fatalln("DOMAIN env must be setted")
+	}
+	if IP_URL_SERVICE == "" {
+		log.Fatalln("IP_URL_SERVICE env must be setted")
 	}
 	domainer.SetDomain(DOMAIN)
 }
