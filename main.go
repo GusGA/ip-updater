@@ -10,7 +10,7 @@ import (
 	"github.com/gusga/ip-updater/storage"
 )
 
-const IP_URL_SERVICE = "http://ident.me/"
+var IP_URL_SERVICE = os.Getenv("IP_URL_SERVICE")
 
 var DOMAIN string
 
@@ -59,12 +59,11 @@ func main() {
 
 	ip := lookupRemoteIp()
 	if domainData.Ip == ip {
-		log.Println("The IP address has not changed")
+		log.Printf("The IP address has not changed %s\n", ip)
 		return
 	}
 	err = domainData.UpdateIp(ip)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	return
 }
