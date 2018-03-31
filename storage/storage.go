@@ -28,7 +28,7 @@ func SaveDomainData(domain string, data string) error {
 }
 
 func GetDomainData(domain string) (data string, err error) {
-	data, err = redisClient.Get("*_" + domain).Result()
+	data, err = redisClient.Get(domain).Result()
 	if err == redis.Nil {
 		return "", nil
 	}
