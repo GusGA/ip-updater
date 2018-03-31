@@ -1,11 +1,11 @@
 package domainer
 
 import (
-	"strings"
 	"context"
 	"encoding/json"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/digitalocean/godo"
 	"github.com/gusga/ip-updater/storage"
@@ -22,6 +22,7 @@ var opt = &godo.ListOptions{
 	Page:    1,
 	PerPage: 100,
 }
+
 type tokenSource struct {
 	AccessToken string
 }
@@ -36,13 +37,13 @@ func (t *tokenSource) Token() (*oauth2.Token, error) {
 type ownDomain struct {
 	Name string `json:"name"`
 	ID   int    `json:"id"`
-	IP	 string `json:"ip"`
- }
+	IP   string `json:"ip"`
+}
 
 // DomainList Strut
- type DomainList struct {
-	Name string `json:"name"`
-	IP 	 string `json:"ip"`
+type DomainList struct {
+	Name       string       `json:"name"`
+	IP         string       `json:"ip"`
 	SubDomains []*ownDomain `json:"subdomains"`
 }
 
@@ -71,7 +72,7 @@ func (dl *DomainList) ToJSON() string {
 }
 
 // SetIP set the domain list ip
-func (dl *DomainList) SetIP (ip string) {
+func (dl *DomainList) SetIP(ip string) {
 	dl.IP = ip
 }
 func (od *ownDomain) updateIP(ip string) error {
@@ -117,7 +118,6 @@ func (dl *DomainList) CheckIP(ip string) bool {
 	return true
 }
 
-
 // SetDomain set global variable
 func SetDomain(domain string) {
 	workingDomain = domain
@@ -125,7 +125,7 @@ func SetDomain(domain string) {
 
 // GetDomains from DO
 func GetDomains() (*DomainList, error) {
-	nDomains := &DomainList{ Name: workingDomain}
+	nDomains := &DomainList{Name: workingDomain}
 	records, _, err := client.Domains.Records(ctx, workingDomain, opt)
 	if err != nil {
 		return nil, err
