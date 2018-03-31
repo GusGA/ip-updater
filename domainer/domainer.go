@@ -1,6 +1,7 @@
 package domainer
 
 import (
+	"strings"
 	"context"
 	"encoding/json"
 	"log"
@@ -11,6 +12,16 @@ import (
 	"golang.org/x/oauth2"
 )
 
+var doToken = os.Getenv("DO_TOKEN")
+var workingDomain string
+
+var ctx = context.TODO()
+var oauthClient = oauth2.NewClient(oauth2.NoContext, &tokenSource{AccessToken: doToken})
+var client = godo.NewClient(oauthClient)
+var opt = &godo.ListOptions{
+	Page:    1,
+	PerPage: 100,
+}
 type tokenSource struct {
 	AccessToken string
 }
@@ -22,70 +33,99 @@ func (t *tokenSource) Token() (*oauth2.Token, error) {
 	return token, nil
 }
 
-type OwnDomain struct {
+type ownDomain struct {
 	Name string `json:"name"`
-	Id   int    `json:"id"`
-	Ip   string `json:"ip"`
+	ID   int    `json:"id"`
+	IP	 string `json:"ip"`
+ }
+
+// DomainList Strut
+ type DomainList struct {
+	Name string `json:"name"`
+	IP 	 string `json:"ip"`
+	SubDomains []*ownDomain `json:"subdomains"`
 }
 
-func NewOwnDomain(domain string, record godo.DomainRecord) *OwnDomain {
-	return &OwnDomain{
-		Name: domain,
-		Id:   record.ID,
-		Ip:   record.Data,
+func newOwnDomain(domain string, record godo.DomainRecord) *ownDomain {
+	return &ownDomain{
+		Name: record.Name,
+		ID:   record.ID,
+		IP:   record.Data,
 	}
 }
 
-func OwnDomainFromDB(jsonString string) (*OwnDomain, error) {
-	ownDomain := OwnDomain{}
-	err := json.Unmarshal([]byte(jsonString), &ownDomain)
-	return &ownDomain, err
+// DomainListFromDB fetch domain list from db
+func DomainListFromDB(jsonString string) (*DomainList, error) {
+	ownDomainList := DomainList{}
+	err := json.Unmarshal([]byte(jsonString), &ownDomainList)
+	return &ownDomainList, err
 }
 
-func (od *OwnDomain) ToJSON() string {
-	data, err := json.Marshal(od)
+// ToJSON convert DomainList to string to save on db
+func (dl *DomainList) ToJSON() string {
+	data, err := json.Marshal(dl)
 	if err != nil {
 		return ""
 	}
 	return string(data)
 }
 
-func (od *OwnDomain) UpdateIp(ip string) error {
+// SetIP set the domain list ip
+func (dl *DomainList) SetIP (ip string) {
+	dl.IP = ip
+}
+func (od *ownDomain) updateIP(ip string) error {
 	editRequest := &godo.DomainRecordEditRequest{
 		Data: ip,
 	}
 	log.Printf("Updating ip address with ip %s", ip)
-	domainRecord, _, err := client.Domains.EditRecord(ctx, od.Name, od.Id, editRequest)
+	domainRecord, _, err := client.Domains.EditRecord(ctx, workingDomain, od.ID, editRequest)
 	if err != nil {
-		return nil
+		return err
 	}
 	if domainRecord.Data != ip {
-		od.Ip = ip
+		od.IP = ip
 	}
-	return storage.SaveDomainData(od.Name, od.ToJSON())
+	return nil
 }
 
-func (od *OwnDomain) Save() error {
-	return storage.SaveDomainData(od.Name, od.ToJSON())
+// Save DomainList to DB
+func (dl *DomainList) Save() error {
+	return storage.SaveDomainData(dl.Name, dl.ToJSON())
 }
 
-var DO_TOKEN = os.Getenv("DO_TOKEN")
-var workingDomain string
-
-var ctx = context.TODO()
-var oauthClient = oauth2.NewClient(oauth2.NoContext, &tokenSource{AccessToken: DO_TOKEN})
-var client = godo.NewClient(oauthClient)
-var opt = &godo.ListOptions{
-	Page:    1,
-	PerPage: 100,
+// UpdateDomainsIP Update all subdomains ip
+func (dl *DomainList) UpdateDomainsIP(ip string) error {
+	for _, od := range dl.SubDomains {
+		log.Printf("Updating domain %s", od.Name)
+		err := od.updateIP(ip)
+		if err != nil {
+			return err
+		}
+	}
+	return dl.Save()
 }
 
+// CheckIP Check all subs ip
+func (dl *DomainList) CheckIP(ip string) bool {
+	for _, od := range dl.SubDomains {
+		log.Printf("Checkin ip from domain %s", od.Name)
+		if strings.Compare(od.IP, ip) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+
+// SetDomain set global variable
 func SetDomain(domain string) {
 	workingDomain = domain
 }
 
-func GetDomains() (*OwnDomain, error) {
-	var nDomain *OwnDomain
+// GetDomains from DO
+func GetDomains() (*DomainList, error) {
+	nDomains := &DomainList{ Name: workingDomain}
 	records, _, err := client.Domains.Records(ctx, workingDomain, opt)
 	if err != nil {
 		return nil, err
@@ -93,9 +133,11 @@ func GetDomains() (*OwnDomain, error) {
 
 	for _, record := range records {
 		if record.Type == "A" && record.Name != "" {
-			nDomain = NewOwnDomain(workingDomain, record)
-			log.Printf("Fetching domain %s", nDomain.Name)
+			domainPlusSub := record.Name + "_" + workingDomain
+			log.Printf("Fetching domain %s", domainPlusSub)
+			subdomain := newOwnDomain(domainPlusSub, record)
+			nDomains.SubDomains = append(nDomains.SubDomains, subdomain)
 		}
 	}
-	return nDomain, nil
+	return nDomains, nil
 }

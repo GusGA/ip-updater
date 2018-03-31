@@ -38,7 +38,8 @@ func init() {
 }
 
 func main() {
-	var domainData *domainer.OwnDomain
+	var domainData *domainer.DomainList
+	ip := lookupRemoteIp()
 	savedDomain, err := storage.GetDomainData(DOMAIN)
 	defer storage.Close()
 	if err != nil {
@@ -49,24 +50,29 @@ func main() {
 		if err != nil {
 			log.Fatalf("Could not retrieve domain records ", err)
 		}
+		
+		domainData.SetIP(ip)
+
 		err = domainData.Save()
-		if err != nil {
-			log.Fatalln(err)
+			if err != nil {
+			log.Fatalln(err)			
 		}
+		
 	} else {
-		domainData, err = domainer.OwnDomainFromDB(savedDomain)
+		domainData, err = domainer.DomainListFromDB(savedDomain)
 		if err != nil {
 			log.Fatalln(err)
 		}
+
 	}
 
-	ip := lookupRemoteIp()
-	if domainData.Ip == ip {
+	if domainData.CheckIP(ip) {
 		log.Printf("The IP address has not changed %s\n", ip)
 		return
-	}
-	err = domainData.UpdateIp(ip)
-	if err != nil {
-		log.Fatalln(err)
+	} else {
+		err = domainData.UpdateDomainsIP(ip)
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 }
