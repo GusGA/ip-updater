@@ -92,7 +92,7 @@ func GetDomains() (*OwnDomain, error) {
 	}
 
 	for _, record := range records {
-		if record.Type == "A" && record.Name == "@" {
+		if record.Type == "A" && record.Name != "" {
 			nDomain = NewOwnDomain(workingDomain, record)
 			log.Printf("Fetching domain %s", nDomain.Name)
 		}
